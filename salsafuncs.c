@@ -9,8 +9,6 @@
 uint32_t littleendian(uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3) {
     uint32_t w;
     w = (uint32_t)b0 + ((uint32_t)b1<<8) + ((uint32_t)b2<<16) + ((uint32_t)b3<<24);
-    printf(" %d %d %d %d \t\t", b0,b1,b2,b3);
-    printf("0x%x\n",w);
     return w;
 };
 

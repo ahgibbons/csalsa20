@@ -56,6 +56,14 @@ void initblock(uint32_t k[KEYWORDS], uint32_t n[NONCEWORDS],
 
 }
 
+void printwordstring(uint32_t *bs, int length) {
+    for (size_t i = 0; i < length; i++)
+    {
+        printf("0x%x\n", bs[i]);
+    }
+    
+};
+
 
 
 void salsaround(uint32_t out[16], const uint32_t in[16]) {
@@ -91,11 +99,11 @@ int main(int argc, char const *argv[])
     bs2words(testnonce, nonce, NONCEBYTES);
     bs2words(testpos, counter, COUNTERBYTES);
 
-    printf("Key: ");
+    printf("Key\n");
     printwordstring(k, KEYWORDS);
-    printf("\nNonce: ");
+    printf("\nNonce\n");
     printwordstring(nonce, NONCEWORDS);
-    printf("\nCounter: ");
+    printf("\nCounter\n");
     printwordstring(counter, COUNTERWORDS);
     printf("\n\n");
 
