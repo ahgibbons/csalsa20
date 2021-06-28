@@ -18,6 +18,7 @@ const uint32_t A2 = 0x79622d32;
 const uint32_t A3 = 0x6b206574;
 
 
+// Test values
 uint8_t testkey[KEYWORDS*4] = { 1, 2, 3, 4, 5, 6, 7, 8,
                     9,10,11,12,13,14,15,16,
                    17,18,19,20,21,22,23,24,
@@ -27,41 +28,13 @@ uint8_t testnonce[NONCEWORDS*4] = {3,1,4,1,5,9,2,6};
 
 uint8_t testpos[COUNTERWORDS*4]   = {7,0,0,0,0,0,0,0};
 
+uint32_t testresult[16] = {0xb9a205a3, 0x0695e150, 0xaa94881a, 0xadb7b12c,
+0x798942d4, 0x26107016, 0x64edb1a4, 0x2d27173f,
+0xb1c7f1fa, 0x62066edc, 0xe035fa23, 0xc4496f04,
+0x2131e6b3, 0x810bde28, 0xf62cb407, 0x6bdede3d};
 
 
-
-
-void expansion32(uint8_t k[32], uint8_t n[16]) {
-    uint8_t k0[16];
-    uint8_t k1[16];
-    uint8_t input[64];
-
-    for (int i = 0; i < 16; i++) {
-       k0[i] = k[i];
-       k1[i] = k[i+16];
-    }
-}
-
-
-uint8_t *wordtoba(uint32_t w) {
-    uint8_t *ba;
-    ba = malloc(sizeof(*ba) * 4);
-    ba[0] = (w & 0xff000000) >> 24;
-    ba[1] = (w & 0x00ff0000) >> 16;
-    ba[2] = (w & 0x0000ff00) >> 8;
-    ba[3] = (w & 0x000000ff);
-
-    return ba;
-}
-
-void printwordstring(uint32_t *bs, int length) {
-    for (size_t i = 0; i < length; i++)
-    {
-        printf("0x%x\n", bs[i]);
-    }
-    
-};
-
+// Create Initial block state in 's'
 void initblock(uint32_t k[KEYWORDS], uint32_t n[NONCEWORDS], 
             uint32_t c[COUNTERWORDS], uint32_t s[16]) {
     s[0]  = A0;   //
@@ -105,6 +78,9 @@ void salsaround(uint32_t out[16], const uint32_t in[16]) {
     }
 }
 
+
+
+
 int main(int argc, char const *argv[])
 {
     uint32_t k[KEYWORDS];
@@ -115,10 +91,11 @@ int main(int argc, char const *argv[])
     bs2words(testnonce, nonce, NONCEBYTES);
     bs2words(testpos, counter, COUNTERBYTES);
 
+    printf("Key: ");
     printwordstring(k, KEYWORDS);
-    printf("\n");
+    printf("\nNonce: ");
     printwordstring(nonce, NONCEWORDS);
-    printf("\n");
+    printf("\nCounter: ");
     printwordstring(counter, COUNTERWORDS);
     printf("\n\n");
 
