@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-//#include "salsafuncs.h"
+#include "salsafuncs.h"
 
 #define NONCEWORDS 2
 #define KEYWORDS 8
@@ -12,10 +12,10 @@
 #define R(W,A) ((W << A) | (W >> (32-A)) )
 
 // Big Endian
-const uint32_t A0 = 0x65787061;
-const uint32_t A1 = 0x6e642033;
-const uint32_t A2 = 0x322d6279;
-const uint32_t A3 = 0x7465206b;
+const uint32_t A0 = 0x61707865;
+const uint32_t A1 = 0x3320646e;
+const uint32_t A2 = 0x79622d32;
+const uint32_t A3 = 0x6b206574;
 
 
 uint8_t testkey[KEYWORDS*4] = { 1, 2, 3, 4, 5, 6, 7, 8,
@@ -29,65 +29,6 @@ uint8_t testpos[COUNTERWORDS*4]   = {7,0,0,0,0,0,0,0};
 
 
 
-uint32_t littleendian(uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3) {
-    uint32_t w;
-    w = (uint32_t)b0 + ((uint32_t)b1<<8) + ((uint32_t)b2<<16) + ((uint32_t)b3<<24);
-    printf(" %d %d %d %d \t\t", b0,b1,b2,b3);
-    printf("0x%x\n",w);
-    return w;
-}
-
-void bs2words(uint8_t *bs, uint32_t *ws, int bslen) {
-    if (bslen%4 != 0) {
-        printf("Bytestring will not fit into an even number of words. Exit\n");
-        exit(0);
-    }
-    uint32_t tempw;
-    for (size_t i = 0; i < bslen/4; i++)
-    {
-        tempw = littleendian(bs[4*i], bs[4*i+1], bs[4*i+2], bs[4*i+3]);
-        ws[i]=tempw;
-    }
-    
-}
-
-
-void show_mem_rep(char *start, int n) {
-    for (int i = 0; i < n; i++)
-    {
-        printf(" %.2x", start[i]);
-    }
-    printf("\n");
-}
-
-
-inline void QR(uint32_t x[], 
-            int a, int b, int c, int d) {
-    x[b] ^= R(x[a] + x[d], 7);
-    x[c] ^= R(x[b] + x[a], 9);
-    x[d] ^= R(x[c] + x[b], 13);
-    x[a] ^= R(x[d] + x[c], 18);
-    }
-
-inline void rowround(uint32_t x[16]) {
-    QR(x, 0,1,2,3);
-    QR(x, 5,6,7,4);
-    QR(x, 10,11,8,9);
-    QR(x, 15,12,13,14);
-}
-
-inline void colround(uint32_t x[16]) {
-    QR(x, 0,4,8,12);
-    QR(x, 5,9,13,1);
-    QR(x, 10,14,2,6);
-    QR(x, 15,3,7,11);
-}
-
-inline void doubleround(uint32_t x[16]) {
-    colround(x);
-    rowround(x);
-}
-
 
 
 void expansion32(uint8_t k[32], uint8_t n[16]) {
@@ -99,9 +40,6 @@ void expansion32(uint8_t k[32], uint8_t n[16]) {
        k0[i] = k[i];
        k1[i] = k[i+16];
     }
-
-    
-
 }
 
 
@@ -122,6 +60,49 @@ void printwordstring(uint32_t *bs, int length) {
         printf("0x%x\n", bs[i]);
     }
     
+};
+
+void initblock(uint32_t k[KEYWORDS], uint32_t n[NONCEWORDS], 
+            uint32_t c[COUNTERWORDS], uint32_t s[16]) {
+    s[0]  = A0;   //
+    s[1]  = k[0];
+    s[2]  = k[1];
+    s[3]  = k[2];
+    s[4]  = k[3]; //
+    s[5]  = A1;
+    s[6]  = n[0];
+    s[7]  = n[1];
+    s[8]  = c[0]; //
+    s[9]  = c[1];
+    s[10] = A2;
+    s[11] = k[4];
+    s[12] = k[5]; //
+    s[13] = k[6];
+    s[14] = k[7];
+    s[15] = A3;
+
+}
+
+
+
+void salsaround(uint32_t out[16], const uint32_t in[16]) {
+    uint32_t x[16];
+
+    for (size_t i = 0; i < 16; i++)
+    {
+        x[i] = in[i];
+    }
+    
+
+    for (size_t i = 0; i < 10; i++)
+    {
+        doubleround(x);
+    }
+    
+    for (size_t i = 0; i < 16; i++)
+    {
+        out[i] = x[i] + in[i];
+    }
 }
 
 int main(int argc, char const *argv[])
@@ -141,7 +122,16 @@ int main(int argc, char const *argv[])
     printwordstring(counter, COUNTERWORDS);
     printf("\n\n");
 
-    
+    uint32_t block[16];
+    initblock(k,nonce,counter,block);
 
+    printblock(block);
+
+    printf("\n\n");
+    uint32_t oblock[16];
+    salsaround(oblock, block);
+
+    printblock(oblock);
+    
     return 0;
 }
