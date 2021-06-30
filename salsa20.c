@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include "salsafuncs.h"
 
 #define NONCEWORDS 2
@@ -147,9 +148,6 @@ void salsastream(int length, uint8_t *key8, uint8_t *nonce8, uint8_t *ostream) {
         counter[1] = count >> 32;
 
         wordblock2bytes(wblock, bblock);
-        
-        printblock(wblock);
-        printf("\n");
     }
 }
 
@@ -185,15 +183,43 @@ void testblock() {
     printblock(testresult);
 }
 
-
+// Encrypts input string, test program
 int main(int argc, char const *argv[])
 {
-    uint8_t ostream[8*BLOCKSIZE];
-    salsastream(BLOCKSIZE*8, testkey, testnonce, ostream); // 8 is test value
-
-    for (size_t i = 0; i < BLOCKSIZE*8; i++) {
-        printf(" %lu\t%02x\n", i, ostream[i]);
+    if (argc != 2) {
+        printf("Incorrect number of args. Expecting 1 input string\n");
+        exit(0);
     }
+
+    unsigned long int mlen = strlen(argv[1]);
+    printf("%s\n", argv[1]);
+    printf("Length: %lu\n", mlen);
+
+    unsigned long int nblocks = (mlen+BLOCKSIZE-1)/BLOCKSIZE;
+    printf("num blocks: %lu\n", nblocks);
+
+    uint8_t *ostream;
+    ostream = malloc(sizeof (*ostream) * nblocks * BLOCKSIZE);
+    salsastream(BLOCKSIZE*nblocks, testkey, testnonce, ostream);
+
+    for (size_t i = 0; i < (nblocks*BLOCKSIZE); i++)
+    {
+        printf("%lu\t%02x\n", i, ostream[i]);
+    }
+    
+    uint8_t *ciphert = malloc(sizeof (*ciphert) * mlen);
+
+    for (size_t i = 0; i < mlen; i++)
+    {
+        ciphert[i] = argv[1][i] ^ ostream[i];
+    }
+
+    for (size_t i = 0; i < mlen; i++)
+    {
+        printf("%02x", ciphert[i]);
+    }
+    printf("\n");
+    
     
 
     return 0;
