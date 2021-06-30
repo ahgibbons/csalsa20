@@ -58,7 +58,7 @@ void printblock(uint32_t block[16]) {
     {
         for (size_t j = 0; j < 4; j++)
         {
-            printf("%08x ", block[i*4 +j]);
+            printf("0x%08x ", block[i*4 +j]);
         }
         printf("\n");
         

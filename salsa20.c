@@ -9,6 +9,8 @@
 #define NONCEBYTES (NONCEWORDS * 4)
 #define KEYBYTES (KEYWORDS * 4)
 #define COUNTERBYTES (COUNTERWORDS * 4)
+#define BLOCKSIZE 64
+#define BLOCKSIZEWORD (BLOCKSIZE/4)
 #define R(W,A) ((W << A) | (W >> (32-A)) )
 
 // Big Endian
@@ -64,6 +66,33 @@ void printwordstring(uint32_t *bs, int length) {
     
 };
 
+inline void word2bs(uint32_t w, uint8_t *bs) {
+    uint8_t b0,b1,b2,b3;
+    bs[0] = (uint8_t) w & 0xffffffff;
+    bs[1] = (uint8_t) (w >> 8) & 0xffffffff;
+    bs[2] = (uint8_t) (w >> 16) & 0xffffffff;
+    bs[3] = (uint8_t) (w >> 24) & 0xffffffff;
+}
+
+void wordblock2bytes(uint32_t wblock[16], uint8_t bblock[64]) {
+    uint8_t b0,b1,b2,b3;
+    uint32_t w;
+    for (size_t i = 0; i < 16; i++)
+    {
+        w = wblock[i];
+        b0 = (uint8_t) w & 0xffffffff;
+        b1 = (uint8_t) (w >> 8) & 0xffffffff;
+        b2 = (uint8_t) (w >> 16) & 0xffffffff;
+        b3 = (uint8_t) (w >> 24) & 0xffffffff;
+
+        bblock[i*4]   = b0;
+        bblock[i*4+1] = b1;
+        bblock[i*4+2] = b2;
+        bblock[i*4+3] = b3;
+    }
+    
+}
+
 
 
 void salsaround(uint32_t out[16], const uint32_t in[16]) {
@@ -86,11 +115,46 @@ void salsaround(uint32_t out[16], const uint32_t in[16]) {
     }
 }
 
+// length in bytes
+void salsastream(int length, uint8_t *key8, uint8_t *nonce8, uint8_t *ostream) {
+    uint32_t k[KEYWORDS];
+    uint32_t nonce[NONCEWORDS];
+    uint32_t counter[COUNTERWORDS];
+    uint64_t count = 0;
+    int nblocks = (length + BLOCKSIZE - 1) / BLOCKSIZE;
+
+    uint32_t *cipherblocks = malloc(nblocks * 16 * sizeof (*cipherblocks));
+
+    bs2words(key8, k, KEYBYTES);
+    bs2words(nonce8, nonce, NONCEBYTES);
+    count = 0;
+    counter[0] = count && 0xffffffff;
+    counter[1] = count >> 32;
+
+    uint32_t iblock[16];
+    uint8_t *bblock;
+    //uint32_t oblock[16];
+
+    for (size_t i = 0; i < nblocks; i++)
+    {
+        uint32_t *wblock;
+        wblock = cipherblocks + (i * 16);
+        bblock = ostream + (i * 64);
+        initblock(k,nonce,counter,iblock);
+        salsaround(wblock,iblock);
+        count++;
+        counter[0] = count & 0xffffffff;
+        counter[1] = count >> 32;
+
+        wordblock2bytes(wblock, bblock);
+        
+        printblock(wblock);
+        printf("\n");
+    }
+}
 
 
-
-int main(int argc, char const *argv[])
-{
+void testblock() {
     uint32_t k[KEYWORDS];
     uint32_t nonce[NONCEWORDS];
     uint32_t counter[COUNTERWORDS];
@@ -110,13 +174,27 @@ int main(int argc, char const *argv[])
     uint32_t block[16];
     initblock(k,nonce,counter,block);
 
-    printblock(block);
-
     printf("\n\n");
     uint32_t oblock[16];
     salsaround(oblock, block);
 
+    printf("Output keystream block:\n");
     printblock(oblock);
     
+    printf("\nExpected result:\n");
+    printblock(testresult);
+}
+
+
+int main(int argc, char const *argv[])
+{
+    uint8_t ostream[8*BLOCKSIZE];
+    salsastream(BLOCKSIZE*8, testkey, testnonce, ostream); // 8 is test value
+
+    for (size_t i = 0; i < BLOCKSIZE*8; i++) {
+        printf(" %lu\t%02x\n", i, ostream[i]);
+    }
+    
+
     return 0;
 }
