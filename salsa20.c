@@ -116,6 +116,27 @@ void salsaround(uint32_t out[16], const uint32_t in[16]) {
     }
 }
 
+void salsa20_block(uint8_t key8[KEYBYTES], uint8_t nonce8[NONCEBYTES],
+                uint64_t count, uint8_t kstream[BLOCKSIZE]) {
+    uint32_t k[KEYWORDS];
+    uint32_t nonce[NONCEWORDS];
+    uint32_t counter[COUNTERWORDS];
+
+    bs2words(key8, k, KEYBYTES);
+    bs2words(nonce8, nonce, NONCEBYTES);
+    counter[0] = count & 0xffffffff;
+    counter[1] = count >> 32;
+
+    uint32_t iblock[16];
+    uint32_t wblock[16];
+    //uint32_t oblock[16];
+
+    initblock(k,nonce,counter,iblock);
+    salsaround(wblock,iblock);
+
+    wordblock2bytes(wblock, kstream);
+}
+
 // length in bytes
 void salsastream(int length, uint8_t *key8, uint8_t *nonce8, uint8_t *ostream) {
     uint32_t k[KEYWORDS];
@@ -129,7 +150,7 @@ void salsastream(int length, uint8_t *key8, uint8_t *nonce8, uint8_t *ostream) {
     bs2words(key8, k, KEYBYTES);
     bs2words(nonce8, nonce, NONCEBYTES);
     count = 0;
-    counter[0] = count && 0xffffffff;
+    counter[0] = count & 0xffffffff;
     counter[1] = count >> 32;
 
     uint32_t iblock[16];
@@ -150,6 +171,21 @@ void salsastream(int length, uint8_t *key8, uint8_t *nonce8, uint8_t *ostream) {
         wordblock2bytes(wblock, bblock);
     }
 }
+
+void printblock_as_words(const uint8_t block[BLOCKSIZE]) {
+    uint32_t pblock[16];
+    bs2words(block, pblock, BLOCKSIZE);
+    for (size_t i = 0; i < 4; i++)
+    {
+        for (size_t j = 0; j < 4; j++)
+        {
+            printf("0x%08x ", pblock[i*4 +j]);
+        }
+        printf("\n");
+        
+    }
+    
+};
 
 
 void testblock() {
@@ -186,10 +222,47 @@ void testblock() {
 // Encrypts input string, test program
 int main(int argc, char const *argv[])
 {
-    if (argc != 2) {
-        printf("Incorrect number of args. Expecting 1 input string\n");
+    FILE *pfile; // Plaintext file
+    FILE *cfile; // cipher text file
+    uint8_t buffer[BLOCKSIZE];
+    size_t rnum;
+
+
+    if (argc != 3) {
+        printf("Incorrect number of args.\nUsage: ./salsa20 <input file> <output file>\n");
         exit(0);
     }
+
+    if (!(pfile = fopen(argv[1], "rb"))) {
+        printf("Error opening file! Exit\n");
+        exit(0);
+    };
+    if (!(cfile = fopen(argv[2], "wb"))) {
+        printf("Error opening file! Exit\n");
+        exit(0);
+    };
+
+    uint8_t kstream[BLOCKSIZE];
+    uint8_t cblock[BLOCKSIZE];
+    uint64_t count = 0;
+    
+     while ((rnum = fread(buffer, 1, BLOCKSIZE, pfile))) {
+        
+        salsa20_block(testkey, testnonce, count, kstream);
+        for (size_t i = 0; i < rnum; i++)
+        {
+            cblock[i] = buffer[i] ^ kstream[i];
+        }
+        fwrite(cblock, 1, rnum, cfile);
+        
+        printf("Block %lu\n",count);
+        printblock_as_words(kstream);
+        printf("\n");
+
+        count++;
+    };
+
+    /*
 
     unsigned long int mlen = strlen(argv[1]);
     printf("%s\n", argv[1]);
@@ -202,11 +275,6 @@ int main(int argc, char const *argv[])
     ostream = malloc(sizeof (*ostream) * nblocks * BLOCKSIZE);
     salsastream(BLOCKSIZE*nblocks, testkey, testnonce, ostream);
 
-    for (size_t i = 0; i < (nblocks*BLOCKSIZE); i++)
-    {
-        printf("%lu\t%02x\n", i, ostream[i]);
-    }
-    
     uint8_t *ciphert = malloc(sizeof (*ciphert) * mlen);
 
     for (size_t i = 0; i < mlen; i++)
@@ -220,7 +288,10 @@ int main(int argc, char const *argv[])
     }
     printf("\n");
     
+    */
     
+    fclose(pfile);
+    fclose(cfile);
 
     return 0;
 }

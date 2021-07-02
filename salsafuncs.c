@@ -12,7 +12,7 @@ uint32_t littleendian(uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3) {
     return w;
 };
 
-void bs2words(uint8_t *bs, uint32_t *ws, int bslen) {
+void bs2words(const uint8_t *bs, uint32_t *ws, int bslen) {
     if (bslen%4 != 0) {
         printf("Bytestring will not fit into an even number of words. Exit\n");
         exit(0);

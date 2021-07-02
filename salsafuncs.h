@@ -4,7 +4,7 @@
 
 uint32_t littleendian(uint8_t, uint8_t, uint8_t, uint8_t);
 
-void bs2words(uint8_t *bs, uint32_t *ws, int bslen);
+void bs2words(const uint8_t *bs, uint32_t *ws, int bslen);
 
 void QR(uint32_t x[], 
             int a, int b, int c, int d);
