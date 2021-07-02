@@ -3,7 +3,14 @@
 #include <stdlib.h>
 #include "salsafuncs.h"
 
-
+#define NONCEWORDS 2
+#define KEYWORDS 8
+#define COUNTERWORDS 2
+#define NONCEBYTES (NONCEWORDS * 4)
+#define KEYBYTES (KEYWORDS * 4)
+#define COUNTERBYTES (COUNTERWORDS * 4)
+#define BLOCKSIZE 64
+#define BLOCKSIZEWORD (BLOCKSIZE/4)
 #define R(W,A) ((W << A) | (W >> (32-A)) )
 
 uint32_t littleendian(uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3) {
@@ -34,31 +41,46 @@ inline void QR(uint32_t x[],
     x[a] ^= R(x[d] + x[c], 18);
 };
 
-inline void rowround(uint32_t x[16]) {
+inline void rowround(uint32_t x[BLOCKSIZEWORD]) {
     QR(x, 0,1,2,3);
     QR(x, 5,6,7,4);
     QR(x, 10,11,8,9);
     QR(x, 15,12,13,14);
 };
 
-inline void colround(uint32_t x[16]) {
+inline void colround(uint32_t x[BLOCKSIZEWORD]) {
     QR(x, 0,4,8,12);
     QR(x, 5,9,13,1);
     QR(x, 10,14,2,6);
     QR(x, 15,3,7,11);
 };
 
-void doubleround(uint32_t x[16]) {
+void doubleround(uint32_t x[BLOCKSIZEWORD]) {
     colround(x);
     rowround(x);
 };
 
-void printblock(uint32_t block[16]) {
+void printblock(uint32_t block[BLOCKSIZEWORD]) {
     for (size_t i = 0; i < 4; i++)
     {
         for (size_t j = 0; j < 4; j++)
         {
             printf("0x%08x ", block[i*4 +j]);
+        }
+        printf("\n");
+        
+    }
+    
+};
+
+void printblock_as_words(const uint8_t block[64]) {
+    uint32_t pblock[BLOCKSIZEWORD];
+    bs2words(block, pblock, BLOCKSIZE);
+    for (size_t i = 0; i < 4; i++)
+    {
+        for (size_t j = 0; j < 4; j++)
+        {
+            printf("0x%08x ", pblock[i*4 +j]);
         }
         printf("\n");
         

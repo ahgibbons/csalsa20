@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "salsafuncs.h"
+#include "salsa20const.h"
 
 #define NONCEWORDS 2
 #define KEYWORDS 8
@@ -12,7 +13,6 @@
 #define COUNTERBYTES (COUNTERWORDS * 4)
 #define BLOCKSIZE 64
 #define BLOCKSIZEWORD (BLOCKSIZE/4)
-#define R(W,A) ((W << A) | (W >> (32-A)) )
 
 // Big Endian
 const uint32_t A0 = 0x61707865;
@@ -129,7 +129,6 @@ void salsa20_block(uint8_t key8[KEYBYTES], uint8_t nonce8[NONCEBYTES],
 
     uint32_t iblock[16];
     uint32_t wblock[16];
-    //uint32_t oblock[16];
 
     initblock(k,nonce,counter,iblock);
     salsaround(wblock,iblock);
@@ -137,108 +136,37 @@ void salsa20_block(uint8_t key8[KEYBYTES], uint8_t nonce8[NONCEBYTES],
     wordblock2bytes(wblock, kstream);
 }
 
-// length in bytes
-void salsastream(int length, uint8_t *key8, uint8_t *nonce8, uint8_t *ostream) {
-    uint32_t k[KEYWORDS];
-    uint32_t nonce[NONCEWORDS];
-    uint32_t counter[COUNTERWORDS];
-    uint64_t count = 0;
-    int nblocks = (length + BLOCKSIZE - 1) / BLOCKSIZE;
-
-    uint32_t *cipherblocks = malloc(nblocks * 16 * sizeof (*cipherblocks));
-
-    bs2words(key8, k, KEYBYTES);
-    bs2words(nonce8, nonce, NONCEBYTES);
-    count = 0;
-    counter[0] = count & 0xffffffff;
-    counter[1] = count >> 32;
-
-    uint32_t iblock[16];
-    uint8_t *bblock;
-    //uint32_t oblock[16];
-
-    for (size_t i = 0; i < nblocks; i++)
-    {
-        uint32_t *wblock;
-        wblock = cipherblocks + (i * 16);
-        bblock = ostream + (i * 64);
-        initblock(k,nonce,counter,iblock);
-        salsaround(wblock,iblock);
-        count++;
-        counter[0] = count & 0xffffffff;
-        counter[1] = count >> 32;
-
-        wordblock2bytes(wblock, bblock);
-    }
-}
-
-void printblock_as_words(const uint8_t block[BLOCKSIZE]) {
-    uint32_t pblock[16];
-    bs2words(block, pblock, BLOCKSIZE);
-    for (size_t i = 0; i < 4; i++)
-    {
-        for (size_t j = 0; j < 4; j++)
-        {
-            printf("0x%08x ", pblock[i*4 +j]);
-        }
-        printf("\n");
-        
-    }
-    
-};
-
-
-void testblock() {
-    uint32_t k[KEYWORDS];
-    uint32_t nonce[NONCEWORDS];
-    uint32_t counter[COUNTERWORDS];
-    
-    bs2words(testkey, k, KEYBYTES);
-    bs2words(testnonce, nonce, NONCEBYTES);
-    bs2words(testpos, counter, COUNTERBYTES);
-
-    printf("Key\n");
-    printwordstring(k, KEYWORDS);
-    printf("\nNonce\n");
-    printwordstring(nonce, NONCEWORDS);
-    printf("\nCounter\n");
-    printwordstring(counter, COUNTERWORDS);
-    printf("\n\n");
-
-    uint32_t block[16];
-    initblock(k,nonce,counter,block);
-
-    printf("\n\n");
-    uint32_t oblock[16];
-    salsaround(oblock, block);
-
-    printf("Output keystream block:\n");
-    printblock(oblock);
-    
-    printf("\nExpected result:\n");
-    printblock(testresult);
-}
 
 // Encrypts input string, test program
 int main(int argc, char const *argv[])
 {
     FILE *pfile; // Plaintext file
-    FILE *cfile; // cipher text file
+    FILE *ofile; // cipher text file
+    FILE *kfile; // Key file
+    FILE *nfile; // nonce file
     uint8_t buffer[BLOCKSIZE];
     size_t rnum;
 
 
-    if (argc != 3) {
-        printf("Incorrect number of args.\nUsage: ./salsa20 <input file> <output file>\n");
+    if (argc != 5) {
+        printf("Incorrect number of args.\nUsage: ./salsa20 <input file> <key file> <nonce file> <output file>\n");
         exit(0);
     }
 
     if (!(pfile = fopen(argv[1], "rb"))) {
-        printf("Error opening file! Exit\n");
+        printf("Error opening input file! Exit\n");
         exit(0);
     };
-    if (!(cfile = fopen(argv[2], "wb"))) {
-        printf("Error opening file! Exit\n");
+    if (!(kfile = fopen(argv[2], "rb"))) {
+        printf("Error opening key file! Exit\n");
+        exit(0);
+    };
+    if (!(nfile = fopen(argv[3], "rb"))) {
+        printf("Error opening nonce file! Exit\n");
+        exit(0);
+    };
+    if (!(ofile = fopen(argv[4], "wb"))) {
+        printf("Error opening output file! Exit\n");
         exit(0);
     };
 
@@ -246,52 +174,50 @@ int main(int argc, char const *argv[])
     uint8_t cblock[BLOCKSIZE];
     uint64_t count = 0;
     
-     while ((rnum = fread(buffer, 1, BLOCKSIZE, pfile))) {
+    uint8_t key[KEYBYTES];
+    uint8_t nonce[NONCEBYTES];
+
+    if ((rnum = fread(key, 1, KEYBYTES, kfile))!=KEYBYTES) {
+        printf("Error. Key has incorrect size\n");
+        exit(0);
+    }
+
+    if ((rnum = fread(nonce, 1, NONCEBYTES, nfile))!=NONCEBYTES) {
+        printf("Error. Nonce has incorrect size\n");
+        exit(0);
+    }
+
+    printf("Key: ");
+    for (size_t i = 0; i < KEYBYTES; i++)
+    {
+        printf("%02x ", key[i]);
+    }
+    printf("\n");
+
+    printf("None: ");
+    for (size_t i = 0; i < NONCEBYTES; i++)
+    {
+        printf("%02x ", nonce[i]);
+    }
+    printf("\n");
+    
+
+    while ((rnum = fread(buffer, 1, BLOCKSIZE, pfile))) {
         
-        salsa20_block(testkey, testnonce, count, kstream);
+        salsa20_block(key, nonce, count, kstream);
         for (size_t i = 0; i < rnum; i++)
         {
             cblock[i] = buffer[i] ^ kstream[i];
         }
-        fwrite(cblock, 1, rnum, cfile);
-        
-        printf("Block %lu\n",count);
-        printblock_as_words(kstream);
-        printf("\n");
+        fwrite(cblock, 1, rnum, ofile);
 
         count++;
     };
-
-    /*
-
-    unsigned long int mlen = strlen(argv[1]);
-    printf("%s\n", argv[1]);
-    printf("Length: %lu\n", mlen);
-
-    unsigned long int nblocks = (mlen+BLOCKSIZE-1)/BLOCKSIZE;
-    printf("num blocks: %lu\n", nblocks);
-
-    uint8_t *ostream;
-    ostream = malloc(sizeof (*ostream) * nblocks * BLOCKSIZE);
-    salsastream(BLOCKSIZE*nblocks, testkey, testnonce, ostream);
-
-    uint8_t *ciphert = malloc(sizeof (*ciphert) * mlen);
-
-    for (size_t i = 0; i < mlen; i++)
-    {
-        ciphert[i] = argv[1][i] ^ ostream[i];
-    }
-
-    for (size_t i = 0; i < mlen; i++)
-    {
-        printf("%02x", ciphert[i]);
-    }
-    printf("\n");
-    
-    */
     
     fclose(pfile);
-    fclose(cfile);
+    fclose(ofile);
+    fclose(nfile);
+    fclose(kfile);
 
     return 0;
 }
