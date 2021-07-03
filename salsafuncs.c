@@ -1,17 +1,55 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "salsa20const.h"
 #include "salsafuncs.h"
 
-#define NONCEWORDS 2
-#define KEYWORDS 8
-#define COUNTERWORDS 2
-#define NONCEBYTES (NONCEWORDS * 4)
-#define KEYBYTES (KEYWORDS * 4)
-#define COUNTERBYTES (COUNTERWORDS * 4)
-#define BLOCKSIZE 64
-#define BLOCKSIZEWORD (BLOCKSIZE/4)
+
 #define R(W,A) ((W << A) | (W >> (32-A)) )
+
+// Big Endian
+const uint32_t A0 = 0x61707865;
+const uint32_t A1 = 0x3320646e;
+const uint32_t A2 = 0x79622d32;
+const uint32_t A3 = 0x6b206574;
+
+// Create Initial block state in 's'
+void initblock(uint32_t k[KEYWORDS], uint32_t n[NONCEWORDS], 
+            uint32_t c[COUNTERWORDS], uint32_t s[16]) {
+    s[0]  = A0;   //
+    s[1]  = k[0];
+    s[2]  = k[1];
+    s[3]  = k[2];
+    s[4]  = k[3]; //
+    s[5]  = A1;
+    s[6]  = n[0];
+    s[7]  = n[1];
+    s[8]  = c[0]; //
+    s[9]  = c[1];
+    s[10] = A2;
+    s[11] = k[4];
+    s[12] = k[5]; //
+    s[13] = k[6];
+    s[14] = k[7];
+    s[15] = A3;
+
+}
+
+void printwordstring(uint32_t *bs, int length) {
+    for (size_t i = 0; i < length; i++)
+    {
+        printf("0x%x\n", bs[i]);
+    }
+    
+};
+
+inline void word2bs(uint32_t w, uint8_t *bs) {
+    uint8_t b0,b1,b2,b3;
+    bs[0] = (uint8_t) w & 0xffffffff;
+    bs[1] = (uint8_t) (w >> 8) & 0xffffffff;
+    bs[2] = (uint8_t) (w >> 16) & 0xffffffff;
+    bs[3] = (uint8_t) (w >> 24) & 0xffffffff;
+};
 
 uint32_t littleendian(uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3) {
     uint32_t w;
@@ -86,12 +124,4 @@ void printblock_as_words(const uint8_t block[64]) {
         
     }
     
-};
-
-void show_mem_rep(char *start, int n) {
-    for (int i = 0; i < n; i++)
-    {
-        printf(" %.2x", start[i]);
-    }
-    printf("\n");
 };
